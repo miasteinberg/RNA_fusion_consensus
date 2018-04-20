@@ -1,0 +1,48 @@
+# vim: ft=python
+import os
+import glob
+import itertools
+
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+# These rules run on the host node and are not submitted to the cluster.
+localrules: eric_all, eric_copy
+
+
+rule eric_all:
+    input:  
+        expand(config['es_calls'] + '/{sampleID}' + config['es_suff'], sampleID=sampleIDs)
+
+
+rule eric:
+    input: input_files 
+    output: config['es_out'] + '/{sampleID}/{sampleID}.results.filtered.tsv'
+    threads: 32 
+    params:
+        db_dir = config['es_db_dir'],
+        db_name = config['es_db_name'],
+        eric = config['eric_dir'],
+        sam = config['eric_dir'] + '/samtools-0.1.19', 
+        scratch = config['scratch'] + '/es/{sampleID}'    
+    run:
+        # copy db to scratch
+        shell('mkdir -p {params.scratch}; cp -r {params.db_dir}/{params.db_name} {params.scratch}/{params.db_name}')
+
+        # ericscript uses an old version of samtools so add it to the path
+        shell('export PATH={params.sam}:$PATH; \
+                {params.eric}/ericscript.pl \
+                -name {wildcards.sampleID} \
+                -o {params.scratch}/{wildcards.sampleID} \
+                -db {params.scratch}/{params.db_name} \
+                -p {threads} \
+                {input}')
+        # copy output files back to data directory
+        shell('cp -r {params.scratch}/{wildcards.sampleID} %s' %config['es_out'])
+
+
+rule es_copy:
+    input: rules.eric.output
+    output: config['es_calls'] + '/{sampleID}' + config['es_suff']
+    run:
+        shell('cp {input} {output}')

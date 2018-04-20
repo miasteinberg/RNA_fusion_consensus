@@ -1,0 +1,67 @@
+# vim: ft=python
+
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+
+localrules: sf_all, sf_copy
+
+
+rule sf_all:
+    input: expand('sf_calls/{sampleID}' + config['sf_suff'], sampleID=sampleIDs)
+
+
+# runs if the RNA-seq mapping pipeline has not been run on these samples
+rule sf_staralign:
+    input: input_files
+    output: config['star_out'] + '/{sampleID}/{sampleID}_Chimeric.out.junction'
+    threads: 32
+    params:
+        genomedir = config['star_genome_dir'],
+        gtf = config['annot_gtf'],
+        out = config['star_out']
+    run:
+        shell('STAR --runThreadN {threads} \
+            --readFilesCommand zcat \
+            --sjdbGTFfile {params.gtf} \
+            --twopass1readsN -1 \
+            --chimOutType SeparateSAMold \
+            --twopassMode Basic \
+            --outSAMtype BAM Unsorted \
+            --outReadsUnmapped None \
+            --genomeDir {params.genomedir} \
+            --chimSegmentReadGapMax 3 \
+            --chimSegmentMin 12 \
+            --chimJunctionOverhangMin 12 \
+            --chimFilter None \
+            --alignSJstitchMismatchNmax 5 -1 5 5 \
+            --alignSJDBoverhangMin 12 \
+            --alignMatesGapMax 200000 \
+            --alignIntronMax 200000 \
+            --outFileNamePrefix {params.out}/{wildcards.sampleID}/{wildcards.sampleID}_ \
+            --readFilesIn {input}')
+
+# you can change the output target to star-fusion.fusion_candidates.final if you want to use the SF default filters
+rule starfusion:
+    input: rules.sf_staralign.output
+    output: config['sf_out'] + '/{sampleID}/star-fusion.fusion_candidates.preliminary'
+    threads: 2
+    params:
+        lib = config['sf_genome_lib'],
+        scratch = config['scratch'] + '/sf/{sampleID}',
+        out = config['sf_out']
+    run:
+        shell('STAR-Fusion --chimeric_junction {input} \
+            --genome_lib_dir {params.lib} \
+            -O {params.out}/{wildcards.sampleID} \
+            --tmpdir {params.scratch} \
+            --verbose_level 2 \
+            --no-filter ')
+
+rule sf_copy:
+    input: rules.starfusion.output
+    output: config['sf_calls'] + '/{sampleID}' + config['sf_suff']
+    run:
+        shell('cp {input} {output}')
+
+

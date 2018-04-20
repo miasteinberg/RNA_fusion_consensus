@@ -1,0 +1,58 @@
+# vim: ft=python
+
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+
+localrules: map_all, map_copy
+
+
+rule ms_all:
+    input: expand(config['ms_calls'] + '/{sampleID}' + config['ms_suff'], sampleID=sampleIDs)
+
+
+rule mapsplice:
+    input: input_files
+    output: config['ms_out'] + '/{sampleID}/fusions_well_annotated.txt'
+    threads: 32 
+    params:
+        map = config['ms_dir'],
+        ref = config['ms_ref'],
+        bt_path = config['bow_path'],
+        bt_pref = config['bow_pref'],
+        gtf = config['annot_gtf'],
+        r1 = '{sampleID}.R1.fastq',
+        r2 = '{sampleID}.R2.fastq',
+        scratch = config['scratch'] + '/ms/{sampleID}',
+        out = config['ms_out']
+    run:
+        shell('mkdir -p {params.scratch}')
+        # unzip the fastq.gz onto scratch drive
+        shell('gunzip -c {input[0]} > {params.scratch}/{params.r1}')
+        shell('gunzip -c {input[1]} > {params.scratch}/{params.r2}')
+        # also copy the bowtie index and reference fastas to scratch
+        shell('cp {params.bt_path}/{params.bt_pref}* {params.scratch}')
+        shell('cp -r {params.ref} {params.scratch}')
+        fastas = os.path.basename(params.ref)
+        # mapsplice uses an old version of samtools, so add it to the path
+        shell('export PATH={params.map}/bin:$PATH; \
+                python {params.map}/mapsplice.py \
+                -p {threads} \
+                -o {params.scratch}/{wildcards.sampleID} \
+                --gene-gtf {params.gtf} \
+                --bam --fusion \
+                -x {params.scratch}/{params.bt_pref} \
+                -c {params.scratch}/{fastas} \
+                -1 {params.scratch}/{params.r1} \
+                -2 {params.scratch}/{params.r2}')
+
+        # copy output files back to data directory
+        shell('cp -r {params.scratch}/{wildcards.sampleID} {params.out}')
+
+
+rule map_copy:
+    input: rules.mapsplice.output
+    output: config['ms_calls'] + '/{sampleID}' + config['ms_suff']
+    run:
+        shell('cp {input} {output}')
+

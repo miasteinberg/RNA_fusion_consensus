@@ -1,0 +1,82 @@
+# vim: ft=python
+
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+
+localrules: cs_all, cs_copy
+
+
+rule cs_all:
+    input: expand(config['cs_calls'] + '/{sampleID}' + config['cs_suff'], sampleID=sampleIDs)
+
+
+rule cs:
+    input: 
+        input_files
+    output: config['cs_out'] + '/{sampleID}/chimeras.bedpe'
+    threads: 32
+    params: 
+        idx_dir = config['cs_dir'],
+        idx_pre = config['cs_pre'],
+        out = config['cs_out'],
+        scratch = config['scratch'] + '/cs/{sampleID}',
+        r1 = '{sampleID}_R1.fastq',
+        r2 = '{sampleID}_R2.fastq',
+        qual = config['quality_scale']
+    run:
+        # unzip fastq.gz onto scratch drive
+        shell('mkdir -p {params.scratch}')
+        shell('gunzip -c {input[0]} > {params.scratch}/{params.r1}')
+        shell('gunzip -c {input[1]} > {params.scratch}/{params.r2}')
+        
+        # ugly work-around for Chimerascan issue where paired reads of unequal length crash the run
+        # you may lose the first few read pairs doing this
+        in1 = open('%s/%s' %(params.scratch, params.r1), 'r')
+        in2 = open('%s/%s' %(params.scratch, params.r2), 'r')
+        # get the first read
+        match = False
+        counter = 0
+        while match == False:
+            in1.readline() # read name
+            in2.readline()
+            p1 = in1.readline() #read sequence
+            p2 = in2.readline()
+            if len(p1) == len(p2):
+                match = True
+            else:
+                print('found a mismatched pair')
+                counter += 1
+                in1.readline() # + line
+                in2.readline()
+                in1.readline() # read quality sequence
+                in2.readline()
+        if counter > 0:
+            maxr = 4 * counter                
+            shell('sed -i "1,%dd" {params.scratch}/{params.r1}' %maxr)
+            shell('sed -i "1,%dd" {params.scratch}/{params.r2}' %maxr)
+                
+    
+        # also copy index to scratch
+        shell('cp -r {params.idx_dir}/{params.idx_pre} {params.scratch}')
+        
+        # make sure chimerascan_run.py is on your path. Here we use a conda env.
+        shell('source activate chimerascan; chimerascan_run.py -p {threads} \
+                --library-type=fr-firststrand \
+                --quals={params.qual} \
+                {params.scratch}/{params.idx_pre} \
+                {params.scratch}/{params.r1} {params.scratch}/cs/{params.r2} \
+                {params.scratch}/{wildcards.sampleID}')
+
+        # remove the tmp folder before copying files - it's HUGE
+        shell('rm -r {params.scratch}/{wildcards.sampleID}/tmp')
+        # copy the output files to the data directory
+        shell('cp -r {params.scratch}/{wildcards.sampleID} {params.out}')
+        
+        
+rule cs_copy:
+    input: config['cs_out'] + '/{sampleID}/chimeras.bedpe'
+    output: config['cs_calls'] + '/{sampleID}' + config['cs_suff']
+    run:
+        shell('cp {input} {output}')
+
