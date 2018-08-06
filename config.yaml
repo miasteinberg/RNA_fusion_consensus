@@ -1,0 +1,113 @@
+fastq_dir: fastq
+metadata: /some/path/reference/metadata/CGR_RND_Chernobyl_Working_Manifest_RNA_20171109.xlsx
+quality_scale: sanger
+spanning: 3 # min number of spanning reads for each fusion
+scratch: /lscratch/$SLURM_JOBID
+cs_scratch: /scratch/user # chimerascan rule couldn't handle $SLURM_JOBID in python code - still unknown why...
+bow_path: /some/path/reference/bowtie/hg19_bt_index
+bow_pref: hg19_bowtie
+annot_gtf: /some/path/reference/ucsc/human_hg19_genes_2015_genebiotype.gtf
+
+# Ericscript files
+eric_dir: /some/path/tools/ericscript-0.5.5 # where ericscript.pl and samtools-0.1.19 are located
+es_db_dir: /some/path/reference/ericscript
+es_db_name: ericscript_db_homosapiens_ensembl73
+es_out: es_out
+es_calls: es_calls
+es_suff: _es_filtered.tsv # eg SC080664_es_filtered.tsv
+
+# Mapsplice files
+ms_dir: /some/path/tools/MapSplice-v2.2.1 # where mapsplice.py and old samtools are located
+ms_ref: /some/path/reference/ucsc/hg19_chrom
+ms_out: ms_out
+ms_calls: ms_calls
+ms_suff: _ms_fusions_well_annotated.txt # eg SC080664_fusions_well_annotated.txt
+# MapSplice2 reports orders of magnitude fewer fusions than the other three tools.
+# In the event that all of the MapSplice fusions are legit, the scoring system will need to be tweaked so that none of the 
+# fusions receive scores >0.50 (I still need to verify the lower-support fusions  before doing this)
+
+
+# STAR-Fusion files
+star_out: star_out # STAR alignment dir with junction file
+star_genome_dir: /some/path/reference/starfusion/genomeDir
+sf_genome_lib: /some/path/reference/starfusion/GRCh37_gencode_v19_CTAT_lib_July272016_prebuilt
+sf_out: sf_out
+sf_calls: sf_calls
+sf_suff: _star-fusion.fusion_candidates.preliminary # SC080644_star-fusion.fusion_candidates.preliminary
+# The pipeline currently analyzes the preliminary candidate list and uses the scoring system to remove false positives.
+# We could also use the final candidate list, but you would want to change the scoring system so that even the low ranking
+# fusions still get relatively high scores. Otherwise you will have legit fusions getting scores ~0.2 or 0.3 for this tool.
+
+# Chimerascan files
+cs_dir: /some/path/reference/chimerascan
+cs_pre: ucsc.hg19_human_hg19_genes_2015.genePred_index
+cs_out: cs_out
+cs_calls: cs_calls
+cs_suff: _cs_chimeras.bedpe # eg SC080644_chimeras.bedpe
+
+# Mapsplice output headers
+ms_cols:
+    -chrom
+    -doner_end
+    -acceptor_start
+    -id
+    -coverage
+    -strand
+    -rgb
+    -block_count
+    -block_size
+    -block_distance
+    -entropy
+    -flank_case
+    -flank_string
+    -min_mismatch
+    -max_mismatch
+    -ave_mismatch
+    -max_min_suffix
+    -max_min_prefix
+    -min_anchor_difference
+    -unique_read_count
+    -multi_read_count
+    -paired_read_count
+    -left_paired_read_count
+    -right_paired_read_count
+    -multiple_paired_read_count
+    -unique_paired_read_count
+    -single_read_count
+    -encompassing_read pair_count
+    -doner_start
+    -acceptor_end
+    -doner_iosforms
+    -acceptor_isoforms
+    -obsolete
+    -obsolete1
+    -obsolete2
+    -obsolete3
+    -minimal_doner_isoform_length
+    -maximal_doner_isoform_length
+    -minimal_acceptor_isoform_length
+    -maximal_acceptor_isoform_length
+    -paired_reads_entropy
+    -mismatch_per_bp
+    -anchor_score
+    -max_doner_fragment
+    -max_acceptor_fragment
+    -max_cur_fragment
+    -min_cur_fragment
+    -ave_cur_fragment
+    -doner_encompass_unique
+    -doner_encompass_multiple
+    -acceptor_encompass_unique
+    -acceptor_encompass_multiple
+    -doner_match_to_normal
+    -acceptor_match_to_normal
+    -doner_seq
+    -acceptor_seq
+    -match_gene_strand
+    -annotated_type
+    -fusion_type
+    -gene_strand
+    -annotated_gene_donor
+    -annotated_gene_acceptor
+
+
