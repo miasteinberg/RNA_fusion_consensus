@@ -7,7 +7,7 @@ workdir: os.environ['PWD']
 shell.executable('bash')
 
 # These rules run on the host node and are not submitted to the cluster.
-localrules: eric_all, eric_copy
+localrules: eric_all, es_copy
 
 
 rule eric_all:

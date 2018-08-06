@@ -11,7 +11,7 @@ rule cs_all:
     input: expand(config['cs_calls'] + '/{sampleID}' + config['cs_suff'], sampleID=sampleIDs)
 
 
-rule cs:
+rule chimerascan:
     input: 
         input_files
     output: config['cs_out'] + '/{sampleID}/chimeras.bedpe'
@@ -32,8 +32,15 @@ rule cs:
         
         # ugly work-around for Chimerascan issue where paired reads of unequal length crash the run
         # you may lose the first few read pairs doing this
-        in1 = open('%s/%s' %(params.scratch, params.r1), 'r')
-        in2 = open('%s/%s' %(params.scratch, params.r2), 'r')
+        
+        # check if lscratch or scratch
+        if 'SLURM' in params.scratch:
+            in1 = open('/lscratch/%s/cs/%s/%s' %(os.getenv('SLURM_JOBID'), wildcards.sampleID, params.r1), 'r')
+            in2 = open('/lscratch/%s/cs/%s/%s' %(os.getenv('SLURM_JOBID'), wildcards.sampleID, params.r2), 'r')
+        else:
+            in1 = open('%s/%s' %(params.scratch, params.r1), 'r')
+            in2 = open('%s/%s' %(params.scratch, params.r2), 'r')
+        
         # get the first read
         match = False
         counter = 0
@@ -65,7 +72,7 @@ rule cs:
                 --library-type=fr-firststrand \
                 --quals={params.qual} \
                 {params.scratch}/{params.idx_pre} \
-                {params.scratch}/{params.r1} {params.scratch}/cs/{params.r2} \
+                {params.scratch}/{params.r1} {params.scratch}/{params.r2} \
                 {params.scratch}/{wildcards.sampleID}')
 
         # remove the tmp folder before copying files - it's HUGE
